@@ -9,7 +9,7 @@ compatibility_flags = ["nodejs_compat"]
 
 [[kv_namespaces]]
 binding = "TOKENS"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"   # from: npx wrangler kv namespace create TOKENS
+id = "5fdc822549ee4a0493b8df3bdc4bd70e"   # from: npx wrangler kv namespace create TOKENS
 
 [observability]
 enabled = true
