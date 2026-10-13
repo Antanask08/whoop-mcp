@@ -1,33 +1,12 @@
+/** Node-only config loading (.env file, home directory). Workers use src/whoop/constants.ts directly. */
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { DEFAULT_REDIRECT_URI, WHOOP_API_BASE, WHOOP_AUTH_URL, WHOOP_TOKEN_URL, type Config } from "./whoop/constants.js";
 
-export interface Config {
-  clientId: string;
-  clientSecret: string;
-  redirectUri: string;
-  tokenPath: string;
-  apiBase: string;
-  authUrl: string;
-  tokenUrl: string;
-}
-
-export const WHOOP_API_BASE = "https://api.prod.whoop.com/developer";
-export const WHOOP_AUTH_URL = "https://api.prod.whoop.com/oauth/oauth2/auth";
-export const WHOOP_TOKEN_URL = "https://api.prod.whoop.com/oauth/oauth2/token";
-export const DEFAULT_REDIRECT_URI = "http://localhost:8787/callback";
-
-/** All scopes the server needs. `offline` is required to receive a refresh token. */
-export const WHOOP_SCOPES = [
-  "offline",
-  "read:profile",
-  "read:body_measurement",
-  "read:cycles",
-  "read:recovery",
-  "read:sleep",
-  "read:workout",
-] as const;
+export { assertClientCredentials, DEFAULT_REDIRECT_URI, WHOOP_API_BASE, WHOOP_AUTH_URL, WHOOP_SCOPES, WHOOP_TOKEN_URL } from "./whoop/constants.js";
+export type { Config } from "./whoop/constants.js";
 
 /**
  * Load a `.env` file from the project root (the directory above `dist/` or `src/`)
@@ -62,12 +41,4 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     authUrl: env.WHOOP_AUTH_URL ?? WHOOP_AUTH_URL,
     tokenUrl: env.WHOOP_TOKEN_URL ?? WHOOP_TOKEN_URL,
   };
-}
-
-export function assertClientCredentials(cfg: Config): void {
-  if (!cfg.clientId || !cfg.clientSecret) {
-    throw new Error(
-      "WHOOP_CLIENT_ID and WHOOP_CLIENT_SECRET are not set. Create an app at https://developer.whoop.com and put the credentials in .env (see .env.example).",
-    );
-  }
 }

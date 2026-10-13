@@ -1,5 +1,4 @@
-import type { Config } from "../config.js";
-import { WHOOP_SCOPES } from "../config.js";
+import { WHOOP_SCOPES, type Config } from "../whoop/constants.js";
 import type { StoredTokens } from "./token-store.js";
 
 export type FetchLike = typeof fetch;

@@ -1,32 +1,12 @@
 #!/usr/bin/env node
-import { McpServer } from "@modelcontextprotocol/server";
+/** Local stdio entry point (Claude Code / Claude Desktop). For Cloudflare Workers see src/worker.ts. */
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { loadConfig, loadDotEnv } from "./config.js";
 import { FileTokenStore } from "./auth/token-store.js";
 import { WhoopClient } from "./whoop/client.js";
-import { registerAnalysisTools } from "./tools/analysis.js";
-import { registerAuthTools } from "./tools/auth.js";
-import { registerCycleTools } from "./tools/cycles.js";
-import { registerProfileTools } from "./tools/profile.js";
-import { registerRecoveryTools } from "./tools/recovery.js";
-import { registerSleepTools } from "./tools/sleep.js";
-import { registerWorkoutTools } from "./tools/workouts.js";
+import { createServer } from "./server.js";
 
-export const SERVER_NAME = "whoop-mcp";
-export const SERVER_VERSION = "0.1.0";
-
-/** Build a fully-registered McpServer around a WhoopClient. */
-export function createServer(client: WhoopClient): McpServer {
-  const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION }, { capabilities: { tools: {} } });
-  registerAuthTools(server, client);
-  registerProfileTools(server, client);
-  registerCycleTools(server, client);
-  registerRecoveryTools(server, client);
-  registerSleepTools(server, client);
-  registerWorkoutTools(server, client);
-  registerAnalysisTools(server, client);
-  return server;
-}
+export { createServer, SERVER_NAME, SERVER_VERSION } from "./server.js";
 
 export function createDefaultClient(): WhoopClient {
   loadDotEnv();

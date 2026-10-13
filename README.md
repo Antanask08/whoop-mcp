@@ -1,6 +1,6 @@
 # whoop-mcp
 
-A [Model Context Protocol](https://modelcontextprotocol.io) server that exposes your **WHOOP** data (recovery, sleep, strain, workouts, profile) as tools for Claude Desktop, Claude Code or any MCP client. Node.js + TypeScript, WHOOP API v2, read-only.
+A [Model Context Protocol](https://modelcontextprotocol.io) server that exposes your **WHOOP** data (recovery, sleep, strain, workouts, profile) as tools for Claude Desktop, Claude Code or any MCP client. Node.js + TypeScript, WHOOP API v2, read-only. Runs locally over stdio or on Cloudflare Workers over HTTP.
 
 ## Tools
 
@@ -78,6 +78,72 @@ claude mcp add whoop -e WHOOP_CLIENT_ID=... -e WHOOP_CLIENT_SECRET=... -- node /
 ```
 
 Then ask things like "How did I sleep this week?", "What's my recovery today?", or "Compare my HRV over the last 14 days".
+
+## Deploy to Cloudflare Workers (remote HTTP)
+
+The same tools can run on Cloudflare's free tier so they're reachable from anywhere. The Worker entry is [src/worker.ts](src/worker.ts); tokens live in Workers KV; the MCP endpoint is protected by a shared bearer token.
+
+| Route | Purpose |
+|---|---|
+| `POST /mcp` | MCP endpoint (Streamable HTTP). Requires `Authorization: Bearer <MCP_BEARER_TOKEN>` |
+| `GET /auth/login?key=<MCP_BEARER_TOKEN>` | Starts the WHOOP sign-in (one time) |
+| `GET /auth/callback` | WHOOP redirect target; must be registered in the WHOOP dashboard |
+| `GET /auth/status?key=<MCP_BEARER_TOKEN>` | Connection status |
+
+### Steps
+
+1. **Log in to Cloudflare** (free account is fine):
+
+   ```bash
+   npx wrangler login
+   ```
+
+2. **Create the KV namespace** and paste the returned `id` into `wrangler.toml` under `[[kv_namespaces]]`:
+
+   ```bash
+   npx wrangler kv namespace create TOKENS
+   ```
+
+3. **Set secrets** (generate a long random string for the bearer token, e.g. `openssl rand -hex 32`):
+
+   ```bash
+   npx wrangler secret put WHOOP_CLIENT_ID
+   npx wrangler secret put WHOOP_CLIENT_SECRET
+   npx wrangler secret put MCP_BEARER_TOKEN
+   ```
+
+4. **Deploy:**
+
+   ```bash
+   npm run deploy:cf
+   ```
+
+   Note the URL, e.g. `https://whoop-mcp.<your-subdomain>.workers.dev`.
+
+5. **Register the callback in WHOOP:** edit your app at <https://developer.whoop.com> and add `https://whoop-mcp.<your-subdomain>.workers.dev/auth/callback` as a redirect URI (keep the localhost one for the stdio server).
+
+6. **Sign in once:** open `https://whoop-mcp.<your-subdomain>.workers.dev/auth/login?key=<MCP_BEARER_TOKEN>` in a browser and approve. Tokens are stored in KV and refresh automatically.
+
+7. **Connect Claude Code:**
+
+   ```bash
+   claude mcp add --transport http -s user whoop-remote https://whoop-mcp.<your-subdomain>.workers.dev/mcp --header "Authorization: Bearer <MCP_BEARER_TOKEN>"
+   ```
+
+### Local Workers dev
+
+`npm run dev:cf` runs the Worker locally with Miniflare. Put `WHOOP_CLIENT_ID`, `WHOOP_CLIENT_SECRET` and `MCP_BEARER_TOKEN` in a gitignored `.dev.vars` file. The local KV is empty; either sign in through `/auth/login` (needs `http://localhost:8787/auth/callback` registered in WHOOP) or seed it from the file store:
+
+```bash
+npx wrangler kv key put --local --binding TOKENS whoop:tokens "$(cat ~/.whoop-mcp/tokens.json)"
+```
+
+### Caveats
+
+- **One WHOOP account per deployment.** Whoever holds `MCP_BEARER_TOKEN` can read that account's data, so treat it like a password.
+- **Don't share one refresh token between the local file store and KV.** WHOOP rotates it on every refresh; whichever copy refreshes first invalidates the other. Sign in separately for each (or copy tokens after the last refresh).
+- **claude.ai custom connectors** require a full OAuth authorization server, not a static bearer. This deployment works with Claude Code and Claude Desktop; claude.ai web/mobile would need an OAuth layer (e.g. Cloudflare's `workers-oauth-provider`) in front.
+- KV is eventually consistent. A refresh in one edge location can take up to ~60s to be visible elsewhere; in practice refreshes happen about once an hour so this is rarely hit.
 
 ## Configuration
 

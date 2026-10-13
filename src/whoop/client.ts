@@ -1,5 +1,4 @@
-import type { Config } from "../config.js";
-import { assertClientCredentials } from "../config.js";
+import { assertClientCredentials, type Config } from "./constants.js";
 import { refreshTokens, toStoredTokens, type FetchLike } from "../auth/oauth.js";
 import type { StoredTokens, TokenStore } from "../auth/token-store.js";
 import type { Paginated } from "./types.js";
@@ -59,7 +58,10 @@ export class WhoopClient {
   constructor(opts: WhoopClientOptions) {
     this.cfg = opts.config;
     this.store = opts.tokenStore;
-    this.fetchImpl = opts.fetch ?? fetch;
+    // Always call fetch unbound: on Cloudflare Workers, invoking `fetch` with a foreign `this`
+    // (e.g. as `this.fetchImpl(...)`) throws "Illegal invocation".
+    const f: FetchLike = opts.fetch ?? ((input, init) => globalThis.fetch(input, init));
+    this.fetchImpl = (input, init) => f(input, init);
     this.skewMs = (opts.refreshSkewSeconds ?? 60) * 1000;
     this.now = opts.now ?? (() => Date.now());
   }
